@@ -1,0 +1,112 @@
+name: oidc-proof
+
+on:
+  push:
+    branches: [main]
+  schedule:
+    - cron: "17 6 * * 1"
+  workflow_dispatch:
+
+permissions: {}
+
+concurrency:
+  group: oidc-proof
+  cancel-in-progress: false
+
+env:
+  AZURE_TENANT_ID: ${{ vars.AZURE_TENANT_ID }}
+  AZURE_CLIENT_ID_DEV: ${{ vars.AZURE_CLIENT_ID_DEV }}
+  AZURE_CLIENT_ID_PROD: ${{ vars.AZURE_CLIENT_ID_PROD }}
+  TF_STATE_ACCOUNT: ${{ vars.TF_STATE_ACCOUNT }}
+
+jobs:
+  dev-state:
+    runs-on: ubuntu-24.04
+    environment: dev
+    permissions:
+      contents: read
+      id-token: write
+    env:
+      ARM_USE_OIDC: "true"
+      ARM_USE_AZUREAD: "true"
+      ARM_TENANT_ID: ${{ vars.AZURE_TENANT_ID }}
+      ARM_CLIENT_ID: ${{ vars.AZURE_CLIENT_ID_DEV }}
+      ARM_SUBSCRIPTION_ID: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: hashicorp/setup-terraform@dfe3c3f87815947d99a8997f908cb6525fc44e9e # v4.0.1
+        with:
+          terraform_version: 1.16.4
+          terraform_wrapper: false
+      - name: Show token claims
+        run: scripts/proof.sh claims
+      - name: terraform init (remote state over OIDC)
+        run: terraform -chdir=infra/azure/envs/dev init -input=false -backend-config="storage_account_name=${TF_STATE_ACCOUNT}"
+      - name: terraform plan (takes a blob lease)
+        run: terraform -chdir=infra/azure/envs/dev plan -input=false -lock-timeout=60s
+
+  denied-no-environment:
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: A token from a job with no environment is refused
+        run: scripts/proof.sh no-environment
+
+  denied-cross-identity:
+    runs-on: ubuntu-24.04
+    environment: dev
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: A dev token is refused by the prod identity
+        run: scripts/proof.sh cross-identity
+
+  denied-cross-env-state:
+    runs-on: ubuntu-24.04
+    environment: dev
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: A dev token cannot read prod state
+        run: scripts/proof.sh cross-env-state
+
+  denied-delegation-key:
+    runs-on: ubuntu-24.04
+    environment: dev
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: A dev token cannot mint a user-delegation key
+        run: scripts/proof.sh delegation-key
+
+  denied-container-delete:
+    runs-on: ubuntu-24.04
+    environment: dev
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: A dev token cannot delete its own container
+        run: scripts/proof.sh container-delete
