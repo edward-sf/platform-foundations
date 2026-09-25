@@ -225,3 +225,19 @@ The cost sheet's `rg-pf-bootstrap` teardown (`az group delete`) fails while the 
 - [ ] CodeQL and PSRule run on PRs; PSRule suppressions link to the threat model.
 - [ ] Lifecycle test completed once.
 - [ ] `docs/security/threat-model.md` and the three runbooks written.
+
+## 12. Changelog
+
+Deviations and additions made while planning and building (2026-09-24):
+
+- **`modules/state-access.bicep` added.** A container-scoped role assignment must be declared in a resource-group-scoped module, not directly in `main.bicep`.
+- **`scripts/lib/http.sh`, `scripts/proof.sh`, `scripts/doctor.sh`, `scripts/ci/install-tools.sh` added.** Workflow jobs call `proof.sh <case>`, so the proof logic is unit-tested.
+- **Deploy-time environment variables use the `PF_` prefix** (`PF_BUDGET_EMAIL` replaces `BUDGET_EMAIL`). The param file reads them with `readEnvironmentVariable`; Actions reserves `GITHUB_*`.
+- **PSRule suppressions live in `.ps-rule/pf-suppressions.Rule.yaml`** as SuppressionGroups, one per threat-model entry, instead of in `ps-rule.yaml`.
+- **Threat model adds "Single-region state storage" (LRS)** as an accepted risk.
+- **Teardown also deletes the role assignments and the custom role definition.** Role definitions outlive their resource group. The brief's cost sheet lacks this row; record it at the M1 checkpoint with the lock-before-group ordering.
+- **The dev root declares the `azurerm` provider** with `resource_provider_registrations = "none"`, so the lock file exists and the provider never needs control-plane rights in M1.
+- **Dependabot uses a 7-day cooldown**; pre-commit uses local system hooks from the Brewfile, and its shellcheck hook skips `*.bats` to match CI.
+- **Bicep and tflint are not installed from Homebrew.** Homebrew refuses the untrusted `azure/bicep` tap and no longer ships `tflint`; both are installed at CI's pinned versions (`az bicep install`, checksum-verified tflint release) as the Brewfile comments describe.
+- **Bicep API versions moved to current GA** (storage 2025-06-01, managed identity 2024-11-30, resource groups 2025-04-01, budgets 2026-06-01) so the linter is warning-free.
+- **Entra and Storage error codes** (`AADSTS700213`, `AuthorizationPermissionMismatch`) are confirmed against real responses in plan Task 15; corrections are recorded here.
