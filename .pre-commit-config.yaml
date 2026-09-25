@@ -1,0 +1,61 @@
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: 3e8a8703264a2f4a69428a0aa4dcb512790b2c8c  # frozen: v6.0.0
+    hooks:
+      - id: check-yaml
+        args: [--allow-multiple-documents]
+      - id: check-json
+      - id: end-of-file-fixer
+      - id: trailing-whitespace
+      - id: check-merge-conflict
+      - id: check-added-large-files
+
+  - repo: local
+    hooks:
+      - id: terraform-fmt
+        name: terraform fmt
+        entry: terraform fmt -check -recursive infra
+        language: system
+        pass_filenames: false
+        files: \.tf$
+      - id: terraform-validate
+        name: terraform validate
+        entry: bash -c 'terraform -chdir=infra/azure/envs/dev init -backend=false -input=false >/dev/null && terraform -chdir=infra/azure/envs/dev validate'
+        language: system
+        pass_filenames: false
+        files: \.tf$
+      - id: tflint
+        name: tflint
+        entry: bash -c 'tflint --recursive --config "$PWD/.tflint.hcl"'
+        language: system
+        pass_filenames: false
+        files: \.tf$
+      - id: bicep-lint
+        name: bicep lint
+        entry: bicep lint infra/bootstrap/main.bicep
+        language: system
+        pass_filenames: false
+        files: \.(bicep|bicepparam)$
+      - id: actionlint
+        name: actionlint
+        entry: actionlint
+        language: system
+        pass_filenames: false
+        files: ^\.github/workflows/
+      - id: zizmor
+        name: zizmor
+        entry: zizmor --offline .github/workflows
+        language: system
+        pass_filenames: false
+        files: ^\.github/
+      - id: shellcheck
+        name: shellcheck
+        entry: shellcheck -x
+        language: system
+        types: [shell]
+        exclude: \.bats$  # bats syntax is not plain shell; CI checks the same set
+      - id: gitleaks
+        name: gitleaks
+        entry: gitleaks git --pre-commit --staged --redact --no-banner
+        language: system
+        pass_filenames: false

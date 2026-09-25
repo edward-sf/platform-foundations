@@ -43,6 +43,7 @@ check_lock() {
 
 # check_role_assignments JSON ENV: exactly one assignment, on tfstate-ENV, with the custom role.
 check_role_assignments() {
+  # shellcheck disable=SC2016  # $env and $role are jq variables, not shell
   check "id-pf-$2 holds only the state role on tfstate-$2" \
     'length == 1 and (.[0].scope | endswith("/blobServices/default/containers/tfstate-" + $env)) and .[0].roleDefinitionName == $role' \
     "$1" --arg env "$2" --arg role "$PF_ROLE_NAME"
@@ -50,6 +51,7 @@ check_role_assignments() {
 
 # check_federated_credentials JSON SUBJECT: exactly one credential, trusting SUBJECT only.
 check_federated_credentials() {
+  # shellcheck disable=SC2016  # $s is a jq variable, not shell
   check "federated credential trusts only $2" \
     'length == 1 and .[0].subject == $s and .[0].issuer == "https://token.actions.githubusercontent.com" and .[0].audiences == ["api://AzureADTokenExchange"]' \
     "$1" --arg s "$2"

@@ -1,0 +1,23 @@
+# PSRule for Azure checks the expanded Bicep bootstrap in CI (ci.yml, job psrule).
+# Accepted risks are suppressed in .ps-rule/pf-suppressions.Rule.yaml, each linked to the threat model.
+requires:
+  PSRule.Rules.Azure: '>=1.47.0'
+
+include:
+  module:
+    - PSRule.Rules.Azure
+
+configuration:
+  AZURE_BICEP_PARAMS_FILE_EXPANSION: true
+  AZURE_BICEP_FILE_EXPANSION: false
+  AZURE_BICEP_CHECK_TOOL: true
+  AZURE_BICEP_MINIMUM_VERSION: '0.47.16'
+
+input:
+  pathIgnore:
+    - '**'
+    - '!infra/bootstrap/main.bicepparam'
+
+output:
+  culture:
+    - en-US

@@ -1,0 +1,95 @@
+name: ci
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  terraform:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: hashicorp/setup-terraform@dfe3c3f87815947d99a8997f908cb6525fc44e9e # v4.0.1
+        with:
+          terraform_version: 1.16.4
+          terraform_wrapper: false
+      - run: scripts/ci/install-tools.sh tflint
+      - run: terraform fmt -check -recursive infra
+      - run: terraform -chdir=infra/azure/envs/dev init -backend=false -input=false
+      - run: terraform -chdir=infra/azure/envs/dev validate
+      - run: tflint --recursive --config "$GITHUB_WORKSPACE/.tflint.hcl"
+
+  bicep:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - run: scripts/ci/install-tools.sh bicep
+      - run: bicep lint infra/bootstrap/main.bicep
+      - run: bicep build infra/bootstrap/main.bicep --stdout > /dev/null
+
+  workflows:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - run: scripts/ci/install-tools.sh actionlint zizmor
+      - run: actionlint
+      - run: zizmor --offline .github/workflows
+
+  shell:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - run: scripts/ci/install-tools.sh shellcheck bats bicep
+      - run: shellcheck -x scripts/*.sh scripts/lib/*.sh scripts/ci/*.sh tests/helpers.bash
+      - run: bats tests
+
+  psrule:
+    runs-on: ubuntu-24.04
+    env:
+      PF_LOCATION: eastus2
+      PF_GITHUB_OWNER_ID: "0"
+      PF_GITHUB_REPO_ID: "0"
+      PF_BUDGET_EMAIL: ci@example.invalid
+      PF_BUDGET_START_DATE: "2026-01-01T00:00:00Z"
+      PF_DEPLOY_BUDGET: "true"
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - run: scripts/ci/install-tools.sh bicep
+      - uses: microsoft/ps-rule@46451b8f5258c41beb5ae69ed7190ccbba84112c # v2.9.0
+        env:
+          PSRULE_AZURE_BICEP_PATH: ${{ runner.temp }}/pf/bin/bicep
+        with:
+          modules: PSRule.Rules.Azure
+          option: ps-rule.yaml
+
+  ci:
+    if: always()
+    needs: [terraform, bicep, workflows, shell, psrule]
+    runs-on: ubuntu-24.04
+    steps:
+      - name: All checks passed
+        env:
+          RESULTS: ${{ join(needs.*.result, ' ') }}
+        run: |
+          echo "job results: $RESULTS"
+          for r in $RESULTS; do
+            [[ "$r" == "success" ]] || exit 1
+          done
