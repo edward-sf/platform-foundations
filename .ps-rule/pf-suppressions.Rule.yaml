@@ -10,7 +10,7 @@ spec:
   rule:
     - Azure.Storage.Firewall
   if:
-    type: '.'
+    field: type
     equals: Microsoft.Storage/storageAccounts
 ---
 # Threat model: "No Defender for Storage" (docs/security/threat-model.md#no-defender-for-storage)
@@ -22,7 +22,7 @@ spec:
   rule:
     - Azure.Storage.DefenderCloud
   if:
-    type: '.'
+    field: type
     equals: Microsoft.Storage/storageAccounts
 ---
 # Threat model: "Single-region state storage" (docs/security/threat-model.md#single-region-state-storage)
@@ -34,5 +34,5 @@ spec:
   rule:
     - Azure.Storage.UseReplication
   if:
-    type: '.'
+    field: type
     equals: Microsoft.Storage/storageAccounts
