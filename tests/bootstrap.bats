@@ -5,7 +5,10 @@ setup() {
   stub az '
 case "$*" in
   "account show"*) echo "{\"id\":\"sub-1\",\"tenantId\":\"ten-1\"}" ;;
-  "consumption budget show"*) if [[ -n "${EXISTING_BUDGET_START:-}" ]]; then echo "$EXISTING_BUDGET_START"; else exit 1; fi ;;
+  "consumption budget show"*)
+    if [[ -n "${BUDGET_ERROR:-}" ]]; then echo "ERROR: (TooManyRequests) throttled" >&2; exit 1
+    elif [[ -n "${EXISTING_BUDGET_START:-}" ]]; then echo "$EXISTING_BUDGET_START"
+    else echo "ERROR: (404) Budget not found." >&2; exit 1; fi ;;
   "deployment sub what-if"*) echo "what-if: 12 to create" ;;
   "deployment sub create"*) echo "{\"tenantId\":{\"value\":\"ten-1\"},\"subscriptionId\":{\"value\":\"sub-1\"},\"storageAccountName\":{\"value\":\"stpfabc\"},\"devClientId\":{\"value\":\"dev-cid\"},\"prodClientId\":{\"value\":\"prod-cid\"}}" ;;
 esac'
@@ -73,4 +76,19 @@ run_bootstrap() { run bash -c "printf '%s\n' '$1' | '$REPO_ROOT/scripts/bootstra
   run set_github_variables '{"tenantId":{"value":"ten-1"}}'
   [ "$status" -eq 1 ]
   [[ "$output" == *"missing deployment output"* ]]
+}
+
+@test "a budget lookup error stops bootstrap before anything is deployed" {
+  export BUDGET_ERROR=1
+  run_bootstrap y
+  [ "$status" -eq 1 ]
+  [[ "$output" == *"TooManyRequests"* ]]
+  [ -z "$(line_of 'az deployment')" ]
+}
+
+@test "skips the budget lookup when the budget is not deployed" {
+  export BUDGET_ERROR=1 PF_DEPLOY_BUDGET=false
+  run_bootstrap y
+  [ "$status" -eq 0 ]
+  [ -z "$(line_of 'az consumption budget show')" ]
 }

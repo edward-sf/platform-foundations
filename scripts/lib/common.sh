@@ -52,13 +52,44 @@ confirm() {
   [[ "$ans" == "y" || "$ans" == "yes" ]]
 }
 
-# Prints the bootstrap storage account name, or nothing if it does not exist.
-state_account() {
-  az storage account list --resource-group "$PF_RG" \
-    --query "[?starts_with(name, 'stpf')].name | [0]" -o tsv 2>/dev/null || true
+# az_absent_ok ARGS...: runs az. A "not found" error prints nothing and succeeds;
+# any other error (throttling, expired login, bad flag) dies instead of reading as absent.
+az_absent_ok() {
+  local out err rc=0 msg
+  err=$(mktemp)
+  out=$(az "$@" 2>"$err") || rc=$?
+  if (( rc != 0 )); then
+    if grep -qiE 'not ?found|does not exist|could not be found|\(404\)' "$err"; then
+      rm -f "$err"
+      return 0
+    fi
+    msg=$(head -c 500 "$err")
+    rm -f "$err"
+    die "az $* failed: $msg"
+  fi
+  rm -f "$err"
+  if [[ -n "$out" ]]; then printf '%s\n' "$out"; fi
+  return 0
 }
 
-# Prints the IDs of the custom state role, one per line (nothing if absent).
+# Prints the bootstrap storage account name, or nothing if it does not exist.
+state_account() {
+  az_absent_ok storage account list --resource-group "$PF_RG" \
+    --query "[?starts_with(name, 'stpf')].name | [0]" -o tsv
+}
+
+# Prints the custom role's resource ID from the bootstrap deployment's outputs,
+# or nothing if the bootstrap was never deployed. Subscription-scope deployment
+# history outlives the resource group, so teardown can still find the role.
+role_definition_id() {
+  az_absent_ok deployment sub show --name pf-bootstrap \
+    --query properties.outputs.roleDefinitionId.value -o tsv
+}
+
+# Prints the custom role's ID if it exists (nothing if absent).
 find_role_definition_ids() {
-  az role definition list --custom-role-only true --name "$PF_ROLE_NAME" --query '[].id' -o tsv 2>/dev/null || true
+  local id
+  id=$(role_definition_id) || return 1
+  [[ -n "$id" ]] || return 0
+  az_absent_ok rest --method get --url "https://management.azure.com${id}?api-version=2022-04-01" --query id -o tsv
 }

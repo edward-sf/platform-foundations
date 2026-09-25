@@ -12,9 +12,10 @@ PARAMS_FILE="$HERE/../infra/bootstrap/main.bicepparam"
 DEPLOYMENT_NAME="pf-bootstrap"
 
 # Keeps an existing budget's start date so redeploys don't try to move it.
+# A lookup error (not "not found") fails rather than resetting the start date.
 budget_start_date() {
   local existing
-  existing=$(az consumption budget show --budget-name pf-budget --query timePeriod.startDate -o tsv 2>/dev/null || true)
+  existing=$(az_absent_ok consumption budget show --budget-name pf-budget --query timePeriod.startDate -o tsv) || exit 1
   if [[ -n "$existing" ]]; then
     printf '%s\n' "$existing"
   else
@@ -45,7 +46,12 @@ main() {
   PF_GITHUB_OWNER_ID=$(gh api "repos/$PF_REPO" --jq .owner.id)
   PF_GITHUB_REPO_ID=$(gh api "repos/$PF_REPO" --jq .id)
   PF_DEPLOY_BUDGET=${PF_DEPLOY_BUDGET:-true}
-  PF_BUDGET_START_DATE=$(budget_start_date)
+  if [[ "$PF_DEPLOY_BUDGET" == "true" ]]; then
+    PF_BUDGET_START_DATE=$(budget_start_date)
+  else
+    # Unused when the budget is skipped, but the param file requires a value.
+    PF_BUDGET_START_DATE=$(date -u +%Y-%m-01T00:00:00Z)
+  fi
   export PF_GITHUB_OWNER_ID PF_GITHUB_REPO_ID PF_DEPLOY_BUDGET PF_BUDGET_START_DATE
 
   local ns

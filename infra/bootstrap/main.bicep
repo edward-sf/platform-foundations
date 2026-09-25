@@ -98,3 +98,4 @@ output subscriptionId string = subscription().subscriptionId
 output storageAccountName string = storage.outputs.name
 output devClientId string = identities[0].outputs.clientId
 output prodClientId string = identities[1].outputs.clientId
+output roleDefinitionId string = role.outputs.roleDefinitionId

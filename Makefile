@@ -1,6 +1,4 @@
 # Operator entry points for platform-foundations. Run `make` for the list.
-REPO := edward-sf/platform-foundations
-
 .DEFAULT_GOAL := help
 .PHONY: help doctor lint test github-setup bootstrap verify-bootstrap proof teardown
 
@@ -25,10 +23,8 @@ bootstrap: ## Deploy the Bicep bootstrap (what-if, then confirm)
 verify-bootstrap: ## Check the deployed bootstrap against the spec
 	scripts/verify-bootstrap.sh
 
-proof: ## Run oidc-proof.yml on main and wait for the result
-	gh workflow run oidc-proof.yml --repo $(REPO) --ref main
-	sleep 5
-	gh run watch --repo $(REPO) --exit-status $$(gh run list --repo $(REPO) --workflow oidc-proof.yml --event workflow_dispatch --limit 1 --json databaseId --jq '.[0].databaseId')
+proof: ## Run oidc-proof.yml on main and wait for that run's result
+	scripts/run-proof.sh
 
 teardown: ## Delete every bootstrap resource and verify it is gone
 	scripts/teardown.sh

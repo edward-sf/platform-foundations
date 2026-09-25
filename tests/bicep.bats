@@ -65,3 +65,7 @@ resources_of_type() { jq -c --arg t "$1" '[.. | objects | select(.type? == $t)]'
   [ "$status" -eq 0 ]
   [[ "$output" == *"ops@example.invalid"* ]]
 }
+
+@test "the deployment outputs the custom role ID for teardown" {
+  jq -e '.outputs | has("roleDefinitionId")' "$TEMPLATE"
+}

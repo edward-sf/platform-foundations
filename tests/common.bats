@@ -87,3 +87,24 @@ setup() {
   run confirm "Proceed?" </dev/null
   [ "$status" -eq 1 ]
 }
+
+@test "az_absent_ok passes output through on success" {
+  stub az 'echo value'
+  run az_absent_ok thing show
+  [ "$status" -eq 0 ]
+  [ "$output" = "value" ]
+}
+
+@test "az_absent_ok treats a not-found error as absent" {
+  stub az 'echo "ERROR: (ResourceNotFound) The Resource was not found." >&2; exit 1'
+  run az_absent_ok thing show
+  [ "$status" -eq 0 ]
+  [ -z "$output" ]
+}
+
+@test "az_absent_ok fails on any other error instead of reporting absent" {
+  stub az 'echo "ERROR: (TooManyRequests) Rate limit exceeded" >&2; exit 1'
+  run az_absent_ok thing show
+  [ "$status" -eq 1 ]
+  [[ "$output" == *"TooManyRequests"* ]]
+}
