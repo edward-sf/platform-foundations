@@ -1,0 +1,10 @@
+.DS_Store
+.env
+.env.*
+**/.terraform/*
+*.tfstate
+*.tfstate.*
+*.tfplan
+crash.log
+infra/bootstrap/*.json
+reports/

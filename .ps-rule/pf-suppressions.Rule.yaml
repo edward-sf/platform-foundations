@@ -1,0 +1,38 @@
+# Accepted risks. Each group maps to one entry in docs/security/threat-model.md.
+# Add a group only for a risk the threat model accepts; fix everything else.
+---
+# Threat model: "Public storage endpoint" (docs/security/threat-model.md#public-storage-endpoint)
+apiVersion: github.com/microsoft/PSRule/v1
+kind: SuppressionGroup
+metadata:
+  name: PF.PublicStorageEndpoint
+spec:
+  rule:
+    - Azure.Storage.Firewall
+  if:
+    field: type
+    equals: Microsoft.Storage/storageAccounts
+---
+# Threat model: "No Defender for Storage" (docs/security/threat-model.md#no-defender-for-storage)
+apiVersion: github.com/microsoft/PSRule/v1
+kind: SuppressionGroup
+metadata:
+  name: PF.NoDefenderForStorage
+spec:
+  rule:
+    - Azure.Storage.DefenderCloud
+  if:
+    field: type
+    equals: Microsoft.Storage/storageAccounts
+---
+# Threat model: "Single-region state storage" (docs/security/threat-model.md#single-region-state-storage)
+apiVersion: github.com/microsoft/PSRule/v1
+kind: SuppressionGroup
+metadata:
+  name: PF.SingleRegionState
+spec:
+  rule:
+    - Azure.Storage.UseReplication
+  if:
+    field: type
+    equals: Microsoft.Storage/storageAccounts
