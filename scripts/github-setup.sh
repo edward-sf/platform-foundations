@@ -92,8 +92,13 @@ configure_security() {
   gh api -X PATCH "repos/$PF_REPO" --input - >/dev/null \
     <<<'{"security_and_analysis":{"secret_scanning":{"status":"enabled"},"secret_scanning_push_protection":{"status":"enabled"}}}'
   gh api -X PUT "repos/$PF_REPO/vulnerability-alerts" >/dev/null
-  gh api -X PATCH "repos/$PF_REPO/code-scanning/default-setup" --input - >/dev/null \
-    <<<'{"state":"configured","languages":["actions"],"query_suite":"default"}'
+  # CodeQL rejects the actions language until workflows exist on the default branch.
+  if gh api "repos/$PF_REPO/contents/.github/workflows?ref=main" >/dev/null 2>&1; then
+    gh api -X PATCH "repos/$PF_REPO/code-scanning/default-setup" --input - >/dev/null \
+      <<<'{"state":"configured","languages":["actions"],"query_suite":"default"}'
+  else
+    log "CodeQL for actions skipped: main has no workflows yet; re-run make github-setup after the first merge"
+  fi
 }
 
 main() {

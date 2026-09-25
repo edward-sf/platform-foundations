@@ -10,6 +10,7 @@ case "$*" in
   "api repos/edward-sf/platform-foundations/branches/main") echo "{}" ;;
   *"deployment-branch-policies --jq"*) if [[ -n "${POLICY_EXISTS:-}" ]]; then echo main; fi ;;
   "api repos/edward-sf/platform-foundations/rulesets --jq"*) echo "${RULESET_ID:-}" ;;
+  "api repos/edward-sf/platform-foundations/contents/.github/workflows?ref=main") if [[ -n "${NO_WORKFLOWS_ON_MAIN:-}" ]]; then exit 1; fi; echo "[]" ;;
 esac'
 }
 
@@ -68,4 +69,11 @@ esac'
   grep -qF '"secret_scanning_push_protection":{"status":"enabled"}' "$STUB_LOG"
   grep -qF 'repos/edward-sf/platform-foundations/vulnerability-alerts' "$STUB_LOG"
   grep -qF '"languages":["actions"]' "$STUB_LOG"
+}
+
+@test "defers CodeQL until main has workflows, and says so" {
+  NO_WORKFLOWS_ON_MAIN=1 run "$REPO_ROOT/scripts/github-setup.sh"
+  [ "$status" -eq 0 ]
+  ! grep -qF 'code-scanning/default-setup' "$STUB_LOG"
+  [[ "$output" == *"re-run make github-setup after the first merge"* ]]
 }
